@@ -720,6 +720,7 @@ def transform(data: str, metadata: dict, mappings: dict,
     # Now we need to convert string back to CSV
     # and iterate over rows
     # =========================================
+    results = []
     with StringIO(data) as fh:
         reader = csv.reader(fh, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
         # counter to keep track
@@ -791,4 +792,6 @@ def transform(data: str, metadata: dict, mappings: dict,
 
             # now yield result back to caller
 
-            yield result
+            results.append(result)
+
+    return results
