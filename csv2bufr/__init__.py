@@ -720,75 +720,75 @@ def transform(data: str, metadata: dict, mappings: dict,
     # Now we need to convert string back to CSV
     # and iterate over rows
     # =========================================
-    fh = StringIO(data)
-    reader = csv.reader(fh, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
-    # counter to keep track
-    rows_read = 0
-    # first read in and process header rows
-    while rows_read < nheaders:
-        row = next(reader)
-        if rows_read == names - 1:
-            col_names = row
-        rows_read += 1
-        continue
+    with StringIO(data) as fh:
+        reader = csv.reader(fh, delimiter=',', quoting=csv.QUOTE_NONNUMERIC)
+        # counter to keep track
+        rows_read = 0
+        # first read in and process header rows
+        while rows_read < nheaders:
+            row = next(reader)
+            if rows_read == names - 1:
+                col_names = row
+            rows_read += 1
+            continue
 
-    # initialise new BUFRMessage (and reuse later)
-    LOGGER.debug("Initializing new BUFR message")
-    message = BUFRMessage(unexpanded_descriptors, delayed_replications,
-                          table_version)
+        # initialise new BUFRMessage (and reuse later)
+        LOGGER.debug("Initializing new BUFR message")
+        message = BUFRMessage(unexpanded_descriptors, delayed_replications,
+                            table_version)
 
-    # now iterate over remaining rows
-    for row in reader:
-        result = dict()
-        LOGGER.debug(f"Processing row {rows_read}")
-        # check and make sure we have ascii data
-        for val in row:
-            if isinstance(val, str):
-                if not val.isascii():
-                    if NULLIFY_INVALID:
-                        LOGGER.debug(f"csv read error, non ASCII data detected ({val}), skipping row")  # noqa
-                        LOGGER.debug(row)
-                        continue
-                    else:
-                        raise ValueError
-        # valid data row, make dictionary
-        data_dict = dict(zip(col_names, row))
-        # reset BUFR message to clear data
-        message.reset()
-        # parse to BUFR sequence
-        LOGGER.debug("Parsing data")
-        message.parse(data_dict, metadata, mappings)
-        # encode to BUFR
-        LOGGER.debug("Parsing data")
-        result["bufr4"] = message.as_bufr()
+        # now iterate over remaining rows
+        for row in reader:
+            result = dict()
+            LOGGER.debug(f"Processing row {rows_read}")
+            # check and make sure we have ascii data
+            for val in row:
+                if isinstance(val, str):
+                    if not val.isascii():
+                        if NULLIFY_INVALID:
+                            LOGGER.debug(f"csv read error, non ASCII data detected ({val}), skipping row")  # noqa
+                            LOGGER.debug(row)
+                            continue
+                        else:
+                            raise ValueError
+            # valid data row, make dictionary
+            data_dict = dict(zip(col_names, row))
+            # reset BUFR message to clear data
+            message.reset()
+            # parse to BUFR sequence
+            LOGGER.debug("Parsing data")
+            message.parse(data_dict, metadata, mappings)
+            # encode to BUFR
+            LOGGER.debug("Parsing data")
+            result["bufr4"] = message.as_bufr()
 
-        # now identifier based on WSI and observation date as identifier
-        wsi = metadata['wigosIds'][0]['wid'] if 'wigosIds' in metadata else "N/A"  # noqa
-        isodate = message.get_datetime().strftime('%Y%m%dT%H%M%S')
-        rmk = f"WIGOS_{wsi}_{isodate}"
+            # now identifier based on WSI and observation date as identifier
+            wsi = metadata['wigosIds'][0]['wid'] if 'wigosIds' in metadata else "N/A"  # noqa
+            isodate = message.get_datetime().strftime('%Y%m%dT%H%M%S')
+            rmk = f"WIGOS_{wsi}_{isodate}"
 
-        # now create GeoJSON if specified
-        if template:
-            LOGGER.debug("Adding GeoJSON representation")
-            result["geojson"] = message.as_geojson(rmk, template)  # noqa
+            # now create GeoJSON if specified
+            if template:
+                LOGGER.debug("Adding GeoJSON representation")
+                result["geojson"] = message.as_geojson(rmk, template)  # noqa
 
-        # now additional metadata elements
-        LOGGER.debug("Adding metadata elements")
-        result["_meta"] = {
-            "identifier": rmk,
-            "md5": message.md5(),
-            "wigos_id": wsi,
-            "data_date": message.get_datetime(),
-            "originating_centre": message.get_element("bufrHeaderCentre"),
-            "data_category": message.get_element("dataCategory")
-        }
+            # now additional metadata elements
+            LOGGER.debug("Adding metadata elements")
+            result["_meta"] = {
+                "identifier": rmk,
+                "md5": message.md5(),
+                "wigos_id": wsi,
+                "data_date": message.get_datetime(),
+                "originating_centre": message.get_element("bufrHeaderCentre"),
+                "data_category": message.get_element("dataCategory")
+            }
 
-        time_ = datetime.now(timezone.utc).isoformat()
-        LOGGER.info(f"{time_}|{result['_meta']}")
+            time_ = datetime.now(timezone.utc).isoformat()
+            LOGGER.info(f"{time_}|{result['_meta']}")
 
-        # increment ticker
-        rows_read += 1
+            # increment ticker
+            rows_read += 1
 
-        # now yield result back to caller
+            # now yield result back to caller
 
-        yield result
+            yield result
